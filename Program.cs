@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;       // Для Stopwatch
 using System.Text;              // Для Encoding
 
@@ -14,58 +14,48 @@ namespace lab1
             Console.OutputEncoding = Encoding.UTF8;
             Console.WriteLine("Запуск деталізованого тестування продуктивності...");
             Console.WriteLine($"Процесор має {Environment.ProcessorCount} логічних ядер.");
+            Console.WriteLine(new string('-', 50));
 
-            // шапка таблиці
-            Console.WriteLine("-----------------------------------------------------------------------------------------------------------------------");
-            Console.WriteLine(
-                $"| {"Опис",-20} | {"Розмір (RxC)",-15} | {"Потоки",-6} | {"Час (Однопоток)",-17} | {"Час (Багатопоток)",-18} | {"Прискорення",-12} | {"Переможець",-10} |");
-            Console.WriteLine(
-                "|----------------------|-----------------|---------|-------------------|--------------------|--------------|------------|");
-
-            // Тестовий набір 1: Маленька матриця
-            // Очікування: Однопотоковий виграє через накладні витрати (overhead)
+            // Тестовий набір 1
             RunBenchmarkSet("Маленька", 500, 500);
 
-            // Тестові набори 2 та 3: Середня матриця
-            // Очікування: Пошук оптимальної кількості потоків
+            // Тестові набори 2 та 3
             RunBenchmarkSet("Середня 1", 4000, 4000);
             RunBenchmarkSet("Середня 2", 7000, 7000);
 
-            // Тестовий набір 4: Велика матриця
-            // Очікування: Багатопотоковий режим показує максимальну ефективність
+            // Тестовий набір 4
             RunBenchmarkSet("Велика", 10000, 10000);
 
-            // Тестовий набір 5: "Довга" матриця (багато рядків)
-            // Очікування: Дуже хороше прискорення, оскільки рядки - наша одиниця паралелізму
+            // Тестовий набір 5
             RunBenchmarkSet("Довга", 50000, 100);
 
-            Console.WriteLine("--------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine(new string('-', 50));
             Console.WriteLine("\nТестування завершено.");
             Console.WriteLine("\nНатисніть Enter для виходу...");
             Console.ReadLine();
         }
 
-        // Виконує повний набір тестів (1 однопотоковий + N багатопотокових) для ОДНІЄЇ матриці вказаного розміру.
+        // Виконує повний набір тестів
         private static void RunBenchmarkSet(string description, int rows, int cols)
         {
-            Stopwatch stopwatch = new Stopwatch();
+            // Виводимо заголовок для цього набору тестів
+            Console.WriteLine($"\n--- Тест: {description} ({rows}x{cols}) ---");
 
+            Stopwatch stopwatch = new Stopwatch();
             int[,] matrix = GenerateMatrix(rows, cols); // генерація матриці
 
-            // однопотоковий (базовий тест)
+            // 1. Однопотоковий (базовий тест)
             MatrixGameSolver singleSolver = new MatrixGameSolver(matrix);
             stopwatch.Restart();
             int resSingle = singleSolver.FindMaximinSingleThread();
             stopwatch.Stop();
             long timeSingle = stopwatch.ElapsedMilliseconds;
 
-            Console.WriteLine(
-                $"| {description,-20} | {rows + "x" + cols,-15} | {"1 (База)",-6} | {timeSingle + " мс",-17} | {"-",-18} | {"1.00x",-12} | {"-",-10} |");
+            Console.WriteLine($"Однопоток (1 База): {timeSingle} мс");
 
-            // тестування різної кількості потоків для однієї й тої самої матриці
+            // 2. Багатопотокові тести
             foreach (int threads in ThreadCountsToTest)
             {
-                // створення нового екземпляру, щоб скинути внутрішній стан (масив _rowMinimums)
                 MatrixGameSolver multiSolver = new MatrixGameSolver(matrix);
 
                 stopwatch.Restart();
@@ -75,30 +65,25 @@ namespace lab1
 
                 // аналіз
                 double speedup = (timeSingle > 0 && timeMulti > 0) ? (double)timeSingle / timeMulti : 1.0;
+                string speedupStr = $"{speedup:F2}x";
 
-                string winner;
-                if (timeSingle <= 10 && timeMulti <= 10) // якщо час занадто малий
-                {
-                    winner = "N/A";
-                }
-                else
+                string winner = "N/A";
+                if (timeSingle > 10 || timeMulti > 10) // Порівнюємо, лише якщо час значущий
                 {
                     winner = (timeMulti < timeSingle) ? "Багатопоток" : "Однопоток";
                 }
 
-                // перевірка коректності
-                if (resSingle != resMulti)
+                if (resSingle != resMulti) // перевірка коректності
                 {
                     winner = "ПОМИЛКА!";
                 }
 
-                // виведення рядку таблиці
-                Console.WriteLine(
-                    $"| {description,-20} | {rows + "x" + cols,-15} | {threads,-6} | {timeSingle + " мс",-17} | {timeMulti + " мс",-18} | {speedup:F2}x {null,-7} | {winner,-10} |");
+                // Виводимо результат для поточної к-сті потоків
+                Console.WriteLine($"Потоків: {threads,-2} | Час: {timeMulti,-4} мс | Прискорення: {speedupStr,-6} | Переможець: {winner}");
             }
         }
 
-        // Допоміжний метод для створення великої матриці з випадковими числами.
+        // Допоміжний метод для створення матриці
         private static int[,] GenerateMatrix(int rows, int cols)
         {
             int[,] matrix = new int[rows, cols];
